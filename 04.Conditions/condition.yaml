@@ -18,7 +18,7 @@ Mappings:
       instanceType: "t2.micro"
       name: "qa"
     prod:
-      instanceType: "t2.medium"
+      instanceType: "t2.medium"  # "t2.medium"
       name: "prod"
 
 Conditions:
@@ -29,7 +29,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !FindInMap [EnvMap, !Ref Environment, instanceType]
-      ImageId: ami-0dba2cb6798deb6d8
+      ImageId: ami-084568db4383264d4 # ubuntu 24.04 LTS
       Tags:
         - Key: "Name"
           Value: !FindInMap [EnvMap, !Ref Environment, name]
@@ -51,7 +51,7 @@ Resources:
       Size: 1 # Size in GiB
       AvailabilityZone:
         !GetAtt Instance.AvailabilityZone
-output:
+Outputs:
   InstanceId:
     Description: "Instance ID"
     Value: !Ref Instance
@@ -60,4 +60,4 @@ output:
     Value: !Ref NewVolume
   MountPoint:
     Description: "Mount Point"
-    Value: !GetAtt MountPoint.Device        
+    Value: !GetAtt MountPoint.Device
