@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dynamically launch an EC2 instance with the latest AMI based on OS selection (Ubuntu, Windows, Amazon Linux)
+
+Parameters:
+  OSChoice:
+    Type: String
+    Default: Ubuntu
+    AllowedValues:
+      - Ubuntu
+      - Windows
+      - AmazonLinux
+    Description: Select the operating system.
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.small
+      - t3.medium
+
+Resources:
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AmiLookupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeImages
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  AmiLookupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.12
+      Timeout: 60
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+              try:
+                  os_type = event['ResourceProperties']['OS']
+                  ec2 = boto3.client('ec2')
+
+                  if os_type == 'Ubuntu':
+                      filters = [
+                          {'Name': 'name', 'Values': ['ubuntu/images/hvm-ssd*/*-24.04-amd64-server-*']},
+                          {'Name': 'state', 'Values': ['available']},
+                          {'Name': 'architecture', 'Values': ['x86_64']},
+                      ]
+                      owners = ['099720109477']  # Canonical
+
+                  elif os_type == 'Windows':
+                      filters = [
+                          {'Name': 'name', 'Values': ['Windows_Server-2022-English-Full-Base-*']},
+                          {'Name': 'state', 'Values': ['available']},
+                          {'Name': 'architecture', 'Values': ['x86_64']},
+                      ]
+                      owners = ['amazon']
+
+                  elif os_type == 'AmazonLinux':
+                      filters = [
+                          {'Name': 'name', 'Values': ['al2023-ami-*-x86_64']},
+                          {'Name': 'state', 'Values': ['available']},
+                          {'Name': 'architecture', 'Values': ['x86_64']},
+                      ]
+                      owners = ['137112412989']  # Amazon
+
+                  else:
+                      raise ValueError("Unsupported OS type.")
+
+                  images = ec2.describe_images(Owners=owners, Filters=filters)['Images']
+                  latest_image = sorted(images, key=lambda x: x['CreationDate'], reverse=True)[0]
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {'ImageId': latest_image['ImageId']})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+
+  AmiLookupCustomResource:
+    Type: Custom::DynamicAmiLookup
+    Properties:
+      ServiceToken: !GetAtt AmiLookupFunction.Arn
+      OS: !Ref OSChoice
+
+  DynamicEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !GetAtt AmiLookupCustomResource.ImageId
+      KeyName: xxxxxxxxxxxxxx             # 🔧 Replace with your actual EC2 key pair name
+      SubnetId: subnet-xxxxxxxxxxxxxx         # 🔧 Replace with your subnet ID
+      SecurityGroupIds:
+        - sg-xxxxxxxxxxxxxxxxxxxxxx                   # 🔧 Replace with your security group ID
+      Tags:
+        - Key: Name
+          Value: !Sub '${OSChoice}-Instance'
+
+Outputs:
+  SelectedOS:
+    Description: Operating system selected
+    Value: !Ref OSChoice
+
+  AMIUsed:
+    Description: Latest AMI used
+    Value: !GetAtt AmiLookupCustomResource.ImageId
+
+  InstanceID:
+    Description: EC2 Instance ID
+    Value: !Ref DynamicEC2Instance
