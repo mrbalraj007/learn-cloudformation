@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Template for joining resources"
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: "The name of the S3 bucket"
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: "^[a-zA-Z0-9.-]*$"
+    ConstraintDescription: "Must be a valid S3 bucket name."
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join [ '-', [ !Ref S3BucketName, !Ref AWS::Region, !Ref AWS::StackName ] ]
+
+Outputs:
+  S3BucketNameOutput:
+    Description: "The name of the created S3 bucket"
+    Value: !Ref S3Bucket
+
+
+# YouTube Link: https://www.youtube.com/watch?v=inTrZqqoaa0&list=PL5KTLzN85O4LNGYy-dm1wJ-sKE5l4b5P5&index=12
