@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates S3 bucket | Split"
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Select [0, !Split ["|", "randombucket-name|randombucket-name1|randombucket-name2"]]
+
+
+
+
+# YouTube Link: https://www.youtube.com/watch?v=u2MMbNtzE_A&list=PL5KTLzN85O4LNGYy-dm1wJ-sKE5l4b5P5&index=15

@@ -1,0 +1,35 @@
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create EC2 instance | FindInMap"
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+      - qa
+
+Mappings: #logical id/map name
+  EnvMap:
+    dev:
+      instanceType: "t2.large"
+      name: "dev"
+    qa:
+      instanceType: "t2.medium"
+      name: "qa"
+    prod:
+      instanceType: "t2.xlarge"
+      name: "prod"
+
+Resources: #logical id/name
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !FindInMap [EnvMap, !Ref Environment, instanceType]
+      ImageId: ami-0dba2cb6798deb6d8
+      Tags:
+        - Key: "Name"
+          Value: !FindInMap [EnvMap, !Ref Environment, name]
+
+# YouTube Link: https://www.youtube.com/watch?v=u2MMbNtzE_A&list=PL5KTLzN85O4LNGYy-dm1wJ-sKE5l4b5P5&index=16
